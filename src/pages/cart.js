@@ -22,11 +22,52 @@ import {
   increaseQuantity,
   removeFromCart,
 } from "../features/cartSlice";
+import { loadStripe } from "@stripe/stripe-js";
 
 export default function CartPage() {
   const { carts, totalQuantity, totalPrice } = useSelector(
     (state) => state.cart
   );
+
+  const handlePayment = async () => {
+    const stripe = await loadStripe(process.env.REACT_APP_STRIPE_API);
+    if (!totalPrice) {
+      return;
+    }
+    if (!stripe) {
+      return;
+    }
+    try {
+      const paymentObj = {
+        product: {
+          name: "test",
+          price: totalPrice,
+          quantity: totalQuantity,
+          redirect_to: "http://localhost:3000",
+        },
+      };
+
+      const fetchPayment = await fetch(
+        `${process.env.REACT_APP_BASE_URL}/api/create-checkout-session`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(paymentObj),
+        }
+      );
+      const res = await fetchPayment.json();
+      const result = stripe.redirectToCheckout({
+        sessionId: res?.id,
+      });
+      if (result.error) {
+        console.log(result.error);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   const dispatch = useDispatch();
 
@@ -149,7 +190,7 @@ export default function CartPage() {
                   </MDBListGroupItem>
                 </MDBListGroup>
 
-                <MDBBtn block size="lg">
+                <MDBBtn block size="lg" onClick={handlePayment}>
                   Go to checkout
                 </MDBBtn>
               </MDBCardBody>
